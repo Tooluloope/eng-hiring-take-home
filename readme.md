@@ -4,6 +4,8 @@ A **monorepo** starter for the product-engineering take-home: extend a working C
 
 For the full assignment details and requirements, see [assignment.md](assignment.md).
 
+You **must** create your own repository from this template before starting the assignment. Follow GitHub’s guide: [Creating a repository from a template](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+
 ## What’s in the repo
 
 - **Backend**: FastAPI (Python), SQLite, JWT auth, CRUD posts (title, platform, scheduled_at, status).

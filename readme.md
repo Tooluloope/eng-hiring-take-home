@@ -2,6 +2,8 @@
 
 A **monorepo** starter for the product-engineering take-home: extend a working Creator Scheduler without rewriting it.
 
+For the full assignment details and requirements, see [assignment.md](assignment.md).
+
 ## What’s in the repo
 
 - **Backend**: FastAPI (Python), SQLite, JWT auth, CRUD posts (title, platform, scheduled_at, status).
@@ -87,7 +89,6 @@ backend/
     schemas/      # Pydantic request/response
   scripts/
     seed_data.py  # random users + posts
-  tests/         # pytest (test_auth.py, test_posts.py, conftest.py)
   scheduler.db   # SQLite (created on first run / seed)
 
 frontend/
@@ -96,7 +97,6 @@ frontend/
     components/   # Layout, ProtectedRoute + ProtectedRoute.test.jsx
     context/      # AuthContext + AuthContext.test.jsx
     pages/        # Login, Register, PostsList, PostEdit, CalendarPage
-    test/         # Vitest setup (setup.js)
 ```
 
 ## Tech stack

@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import { postsApi } from "../api/client";
+import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
+import { postsApi, seriesApi } from "../api/client";
+import {
+  localInputToUtcIso,
+  toDateTimeLocalInput,
+  userTimeZone,
+} from "../utils/datetime";
 
 const PLATFORMS = ["youtube", "instagram", "twitter", "tiktok", "linkedin"];
 const STATUSES = ["draft", "scheduled", "published", "failed"];
@@ -13,28 +18,46 @@ export default function PostEdit() {
   // endpoint with an invalid path parameter.
   const isNew = !id || id === "new";
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [series, setSeries] = useState([]);
   const [form, setForm] = useState({
     title: "",
     platform: "youtube",
     scheduled_at: "",
     status: "draft",
+    series_id: searchParams.get("seriesId") || "",
+    series_position: "",
   });
 
   useEffect(() => {
-    if (isNew) return;
+    let cancelled = false;
+    seriesApi
+      .list()
+      .then((data) => {
+        if (!cancelled) setSeries(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (isNew) {
+      setLoading(false);
+      return;
+    }
     postsApi
       .get(id)
       .then((p) => {
         setForm({
           title: p.title,
           platform: p.platform,
-          scheduled_at: p.scheduled_at
-            ? new Date(p.scheduled_at).toISOString().slice(0, 16)
-            : "",
+          scheduled_at: toDateTimeLocalInput(p.scheduled_at),
           status: p.status,
+          series_id: p.series_id ? String(p.series_id) : "",
+          series_position: p.series_position ? String(p.series_position) : "",
         });
       })
       .catch(() => setError("Post not found"))
@@ -44,12 +67,18 @@ export default function PostEdit() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (form.status === "scheduled" && !form.scheduled_at) {
+      setError("Scheduled posts need a scheduled time.");
+      return;
+    }
     setSaving(true);
     const payload = {
       title: form.title,
       platform: form.platform,
       status: form.status,
-      scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+      scheduled_at: localInputToUtcIso(form.scheduled_at),
+      series_id: form.series_id ? Number(form.series_id) : null,
+      series_position: form.series_position ? Number(form.series_position) : null,
     };
     try {
       if (isNew) {
@@ -67,6 +96,8 @@ export default function PostEdit() {
   };
 
   if (loading) return <div className="loading">Loading…</div>;
+
+  const scheduledAtRequired = form.status === "scheduled";
 
   return (
     <div className="post-edit-page">
@@ -98,11 +129,34 @@ export default function PostEdit() {
           </select>
         </label>
         <label>
-          Scheduled at (optional)
+          Series
+          <select
+            value={form.series_id}
+            onChange={(e) => setForm((f) => ({ ...f, series_id: e.target.value }))}
+          >
+            <option value="">No series</option>
+            {series.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Series position
+          <input
+            type="number"
+            min="1"
+            value={form.series_position}
+            onChange={(e) => setForm((f) => ({ ...f, series_position: e.target.value }))}
+            placeholder="Optional"
+          />
+        </label>
+        <label>
+          Scheduled at ({userTimeZone()}{scheduledAtRequired ? "" : ", optional"})
           <input
             type="datetime-local"
             value={form.scheduled_at}
             onChange={(e) => setForm((f) => ({ ...f, scheduled_at: e.target.value }))}
+            required={scheduledAtRequired}
           />
         </label>
         <label>

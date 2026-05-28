@@ -22,7 +22,10 @@ class Post(Base):
     scheduled_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(32), default=PostStatus.DRAFT.value, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    series_id = Column(Integer, ForeignKey("content_series.id", ondelete="SET NULL"), nullable=True, index=True)
+    series_position = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     owner = relationship("User", back_populates="posts")
+    series = relationship("ContentSeries", back_populates="posts")

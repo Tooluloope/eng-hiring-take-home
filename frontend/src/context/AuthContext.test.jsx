@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
-import { AuthProvider, useAuth } from './AuthContext'
+import { AuthProvider } from './AuthContext'
+import { useAuth } from './useAuth'
 
 // Mock the API client so we don't hit the network
 vi.mock('../api/client', () => ({

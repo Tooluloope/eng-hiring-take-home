@@ -3,7 +3,8 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { postsApi } from "../api/client";
+import { postsApi, seriesApi } from "../api/client";
+import { parseUtcDate, userTimeZone } from "../utils/datetime";
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
@@ -20,18 +21,23 @@ export default function CalendarPage() {
   const [view, setView] = useState("month");
 
   useEffect(() => {
-    postsApi
-      .list()
-      .then((posts) => {
+    Promise.all([postsApi.list(), seriesApi.list()])
+      .then(([posts, series]) => {
+        const seriesById = Object.fromEntries(series.map((item) => [item.id, item]));
         const evts = posts
           .filter((p) => p.scheduled_at)
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-            start: new Date(p.scheduled_at),
-            end: new Date(new Date(p.scheduled_at).getTime() + 60 * 60 * 1000),
-            resource: { platform: p.platform, status: p.status },
-          }));
+          .map((p) => {
+            const start = parseUtcDate(p.scheduled_at);
+            if (!start) return null;
+            return {
+              id: p.id,
+              title: p.series_id ? `${seriesById[p.series_id]?.name || "Series"}: ${p.title}` : p.title,
+              start,
+              end: new Date(start.getTime() + 60 * 60 * 1000),
+              resource: { platform: p.platform, status: p.status, series_id: p.series_id },
+            };
+          })
+          .filter(Boolean);
         setEvents(evts);
       })
       .catch(() => {})
@@ -43,7 +49,9 @@ export default function CalendarPage() {
   return (
     <div className="calendar-page">
       <h1>Calendar</h1>
-      <p className="calendar-hint">Scheduled posts appear as events. Only posts with a scheduled time are shown.</p>
+      <p className="calendar-hint">
+        Scheduled posts appear as events in {userTimeZone()}. Only posts with a scheduled time are shown.
+      </p>
       <div className="calendar-wrap">
         <Calendar
           localizer={localizer}
@@ -58,6 +66,7 @@ export default function CalendarPage() {
           eventPropGetter={(event) => ({
             style: {
               backgroundColor: event.resource?.status === "published" ? "#22c55e" : "#3b82f6",
+              borderLeft: event.resource?.series_id ? "4px solid #111827" : "0",
             },
           })}
         />

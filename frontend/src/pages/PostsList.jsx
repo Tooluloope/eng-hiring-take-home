@@ -1,18 +1,31 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { postsApi } from "../api/client";
-import { format } from "date-fns";
+import { postsApi, seriesApi } from "../api/client";
+import { formatLocalDateTime } from "../utils/datetime";
 
 export default function PostsList() {
   const [posts, setPosts] = useState([]);
+  const [series, setSeries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ status: "", platform: "" });
+  const [filter, setFilter] = useState({ status: "", platform: "", series_id: "" });
+
+  useEffect(() => {
+    let cancelled = false;
+    seriesApi
+      .list()
+      .then((data) => {
+        if (!cancelled) setSeries(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const params = {};
     if (filter.status) params.status = filter.status;
     if (filter.platform) params.platform = filter.platform;
+    if (filter.series_id) params.series_id = filter.series_id;
     postsApi
       .list(params)
       .then((data) => {
@@ -23,9 +36,11 @@ export default function PostsList() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [filter.status, filter.platform]);
+  }, [filter.status, filter.platform, filter.series_id]);
 
   if (loading) return <div className="loading">Loading posts…</div>;
+
+  const seriesById = Object.fromEntries(series.map((item) => [item.id, item]));
 
   return (
     <div className="posts-list-page">
@@ -55,6 +70,15 @@ export default function PostsList() {
           <option value="tiktok">TikTok</option>
           <option value="linkedin">LinkedIn</option>
         </select>
+        <select
+          value={filter.series_id}
+          onChange={(e) => setFilter((f) => ({ ...f, series_id: e.target.value }))}
+        >
+          <option value="">All series</option>
+          {series.map((item) => (
+            <option key={item.id} value={item.id}>{item.name}</option>
+          ))}
+        </select>
       </div>
       <div className="table-wrap">
         <table className="posts-table">
@@ -62,6 +86,7 @@ export default function PostsList() {
             <tr>
               <th>Title</th>
               <th>Platform</th>
+              <th>Series</th>
               <th>Scheduled</th>
               <th>Status</th>
               <th></th>
@@ -70,7 +95,7 @@ export default function PostsList() {
           <tbody>
             {posts.length === 0 ? (
               <tr>
-                <td colSpan={5}>No posts yet. <Link to="/posts/new">Create one</Link>.</td>
+                <td colSpan={6}>No posts yet. <Link to="/posts/new">Create one</Link>.</td>
               </tr>
             ) : (
               posts.map((p) => (
@@ -78,9 +103,17 @@ export default function PostsList() {
                   <td>{p.title}</td>
                   <td><span className="platform">{p.platform}</span></td>
                   <td>
-                    {p.scheduled_at
-                      ? format(new Date(p.scheduled_at), "MMM d, yyyy HH:mm")
-                      : "—"}
+                    {p.series_id ? (
+                      <span className="series-pill">
+                        {seriesById[p.series_id]?.name || `Series ${p.series_id}`}
+                        {p.series_position ? ` #${p.series_position}` : ""}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>
+                    {formatLocalDateTime(p.scheduled_at, "—")}
                   </td>
                   <td><span className={`status status-${p.status}`}>{p.status}</span></td>
                   <td>

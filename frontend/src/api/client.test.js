@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { api, authApi, postsApi } from './client'
+import { format } from 'date-fns'
+import { api, authApi, formatApiErrorMessage, postsApi, seriesApi } from './client'
 
 describe('api', () => {
   const originalFetch = globalThis.fetch
@@ -53,6 +54,27 @@ describe('api', () => {
     await expect(api('/auth/register', { method: 'POST', body: '{}' })).rejects.toThrow(
       'Email already registered'
     )
+  })
+
+  it('formats UTC timestamps in error details as local time', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        detail:
+          "instagram posts must be at least 15 minutes apart. 'Launch teaser' at 2026-05-28T01:45:00Z conflicts with 'Launch teaser' at 2026-05-28T01:43:00Z.",
+      }),
+    })
+    const expected = `${format(new Date('2026-05-28T01:45:00Z'), 'MMM d, yyyy HH:mm')} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`
+
+    await expect(api('/series', { method: 'POST', body: '{}' })).rejects.toThrow(
+      expected
+    )
+    expect(
+      formatApiErrorMessage(
+        "instagram posts must be at least 15 minutes apart. 'Launch teaser' at 2026-05-28T01:45:00Z conflicts with 'Launch teaser' at 2026-05-28T01:43:00Z."
+      )
+    ).not.toContain('2026-05-28T01:45:00Z')
   })
 
   it('on 401 removes token and throws Unauthorized', async () => {
@@ -146,6 +168,45 @@ describe('postsApi', () => {
         method: 'POST',
         body: JSON.stringify({ title: 'T', platform: 'youtube', status: 'draft' }),
       })
+    )
+  })
+})
+
+describe('seriesApi', () => {
+  const originalFetch = globalThis.fetch
+  beforeEach(() => {
+    globalThis.fetch = vi.fn()
+  })
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  it('create sends POST to /series with body', async () => {
+    const payload = { name: 'Launch', cadence: 'weekly', posts: [] }
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 1, ...payload }),
+    })
+    await seriesApi.create(payload)
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/series'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    )
+  })
+
+  it('delete sends DELETE to /series/:id', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+    })
+    await seriesApi.delete(3)
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/series/3'),
+      expect.objectContaining({ method: 'DELETE' })
     )
   })
 })

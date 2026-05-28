@@ -1,7 +1,18 @@
+import { formatLocalDateTime } from "../utils/datetime";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const UTC_TIMESTAMP_PATTERN = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g;
 
 function getToken() {
   return localStorage.getItem("token");
+}
+
+export function formatApiErrorMessage(message) {
+  if (!message) return message;
+  return message.replace(UTC_TIMESTAMP_PATTERN, (timestamp) => {
+    const formatted = formatLocalDateTime(timestamp, "");
+    return formatted || timestamp;
+  });
 }
 
 export async function api(endpoint, options = {}) {
@@ -22,7 +33,7 @@ export async function api(endpoint, options = {}) {
     const msg = Array.isArray(err.detail)
       ? err.detail.map((e) => e.msg || e.message).join(", ")
       : err.detail;
-    throw new Error(msg || JSON.stringify(err));
+    throw new Error(formatApiErrorMessage(msg || JSON.stringify(err)));
   }
   if (res.status === 204) return;
   return res.json();
@@ -52,4 +63,14 @@ export const postsApi = {
   update: (id, data) =>
     api(`/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id) => api(`/posts/${id}`, { method: "DELETE" }),
+};
+
+export const seriesApi = {
+  list: () => api("/series"),
+  get: (id) => api(`/series/${id}`),
+  create: (data) =>
+    api("/series", { method: "POST", body: JSON.stringify(data) }),
+  update: (id, data) =>
+    api(`/series/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id) => api(`/series/${id}`, { method: "DELETE" }),
 };

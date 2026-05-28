@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -16,6 +16,7 @@ export default function Layout() {
         <Link to="/" className="nav-brand">Creator Scheduler</Link>
         <div className="nav-links">
           <Link to="/">Posts</Link>
+          <Link to="/series">Series</Link>
           <Link to="/calendar">Calendar</Link>
           <Link to="/posts/new">New Post</Link>
           {user && (
